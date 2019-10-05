@@ -9,6 +9,7 @@
 #include <list>
 #include <mutex>
 #include <thread>
+#include "tls_thread.h"
 
 #define IS_POWER_OF_TWO(x) (x && (x & (x - 1)) == 0)
 
@@ -237,7 +238,6 @@ class EpochManager {
     bool IsProtected();
 
    private:
-#ifdef GOOGLE_FRAMEWORK
     FRIEND_TEST(EpochManagerTest, Protect);
     FRIEND_TEST(EpochManagerTest, Unprotect);
     FRIEND_TEST(EpochManagerTest, ComputeNewSafeToReclaimEpoch);
@@ -250,7 +250,6 @@ class EpochManager {
     FRIEND_TEST(MinEpochTableTest, getEntryForThread_OneSlotFree);
     FRIEND_TEST(MinEpochTableTest, reserveEntryForThread);
     FRIEND_TEST(MinEpochTableTest, reserveEntry);
-#endif
 
     /// Thread protection status entries. Threads lock entries the first time
     /// the call Protect() (see reserveEntryForThread()). See documentation for
@@ -506,7 +505,7 @@ bool EpochManager::MinEpochTable::Uninitialize() {
   delete[] table_;
   table_ = nullptr;
 
-  return false;
+  return true;
 }
 
 /**
@@ -571,7 +570,10 @@ bool EpochManager::MinEpochTable::Unprotect(Epoch currentEpoch) {
     return false;
   }
 
-  DCHECK(entry->thread_id.load() == pthread_self());
+  LOG_IF(INFO, entry->thread_id.load() != pthread_self())
+      << "thread_id: " << entry->thread_id.load()
+      << "; pthread_self():" << pthread_self() << std::endl;
+  // DCHECK(entry->thread_id.load() == pthread_self());
   entry->last_unprotected_epoch = currentEpoch;
   std::atomic_thread_fence(std::memory_order_release);
   entry->protected_epoch.store(0, std::memory_order_relaxed);
@@ -641,7 +643,7 @@ bool EpochManager::MinEpochTable::GetEntryForThread(Entry** entry) {
   Entry* reserved = ReserveEntryForThread();
   tls = *entry = reserved;
 
-  // Thread::RegisterTls((uint64_t*)&tls, (uint64_t) nullptr);
+  Thread::RegisterTls((uint64_t*)&tls, (uint64_t) nullptr);
 
   return true;
 }
