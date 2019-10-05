@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <glog/logging.h>
+#include <glog/raw_logging.h>
+#include <gtest/gtest_prod.h>
 #include <atomic>
 #include <cstdint>
 #include <list>
@@ -473,7 +476,8 @@ bool EpochManager::MinEpochTable::Initialize(uint64_t size) {
   if (!new_table) return false;
 
   // Ensure the table is cacheline size aligned.
-  assert(!(reinterpret_cast<uintptr_t>(new_table) & (CACHELINE_SIZE - 1)));
+  RAW_CHECK(!(reinterpret_cast<uintptr_t>(new_table) & (CACHELINE_SIZE - 1)),
+            "table is not cacheline aligned");
 
   table_ = new_table;
   size_ = size;
