@@ -1,6 +1,6 @@
 # Simple Epoch Based Memory Reclaimer
 
-[![Build Status](https://patrick-website.visualstudio.com/cpp-template/_apis/build/status/XiangpengHao.cpp-template?branchName=master)](https://patrick-website.visualstudio.com/cpp-template/_build/latest?definitionId=2&branchName=master)
+[![Build Status](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_apis/build/status/XiangpengHao.epoch-reclaimer?branchName=master)](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_build/latest?definitionId=1&branchName=master)
 
 Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas), all bugs are mine.
 
