@@ -1,6 +1,6 @@
-#include "../garbage_list.h"
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include "../garbage_list.h"
 
 struct MockItem {
  public:

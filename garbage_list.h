@@ -1,3 +1,4 @@
+#pragma once
 #include "epoch_manager.h"
 
 template <typename T>
