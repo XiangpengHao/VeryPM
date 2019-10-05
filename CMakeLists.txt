@@ -42,7 +42,8 @@ if (NOT glog_POPULATED)
   FetchContent_Populate(glog)
   set(WITH_GFLAGS OFF CACHE BOOL "we don't want gflags")
   add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
-endif ()
+endif()
+
 
 enable_testing()
 
