@@ -6,7 +6,11 @@
 
 GTEST_TEST(EpochTest, EpochSmoke) {
   LOG(INFO) << "running tests";
+  auto epm = new EpochManager();
+  epm->Initialize();
+  epm->Protect();
   ASSERT_TRUE(true);
+  epm->Unprotect();
 }
 
 int main(int argc, char **argv) {

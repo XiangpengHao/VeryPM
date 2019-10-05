@@ -142,7 +142,7 @@ class EpochManager {
     bool Initialize(uint64_t size = MinEpochTable::kDefaultSize);
     bool Uninitialize();
     bool Protect(Epoch currentEpoch);
-    Status Unprotect(Epoch currentEpoch);
+    bool Unprotect(Epoch currentEpoch);
 
     Epoch ComputeNewSafeToReclaimEpoch(Epoch currentEpoch);
 
@@ -229,7 +229,7 @@ class EpochManager {
                   "Unexpected table entry size");
 
    public:
-    Status GetEntryForThread(Entry** entry);
+    bool GetEntryForThread(Entry** entry);
     Entry* ReserveEntry(uint64_t startIndex, uint64_t threadId);
     Entry* ReserveEntryForThread();
     void ReleaseEntryForThread();
@@ -528,7 +528,9 @@ bool EpochManager::MinEpochTable::Uninitialize() {
  */
 bool EpochManager::MinEpochTable::Protect(Epoch current_epoch) {
   Entry* entry = nullptr;
-  RETURN_NOT_OK(GetEntryForThread(&entry));
+  if (!GetEntryForThread(&entry)) {
+    return false;
+  }
 
   entry->last_unprotected_epoch = 0;
 #if 1
@@ -563,15 +565,17 @@ bool EpochManager::MinEpochTable::Protect(Epoch current_epoch) {
  *      region. Most likely the library has entered some non-serviceable
  *      state.
  */
-Status EpochManager::MinEpochTable::Unprotect(Epoch currentEpoch) {
+bool EpochManager::MinEpochTable::Unprotect(Epoch currentEpoch) {
   Entry* entry = nullptr;
-  RETURN_NOT_OK(GetEntryForThread(&entry));
+  if (!GetEntryForThread(&entry)) {
+    return false;
+  }
 
-  DCHECK(entry->thread_id.load() == Environment::Get()->GetThreadId());
+  DCHECK(entry->thread_id.load() == pthread_self());
   entry->last_unprotected_epoch = currentEpoch;
   std::atomic_thread_fence(std::memory_order_release);
   entry->protected_epoch.store(0, std::memory_order_relaxed);
-  return Status::OK();
+  return true;
 }
 
 /**
@@ -637,9 +641,9 @@ bool EpochManager::MinEpochTable::GetEntryForThread(Entry** entry) {
   Entry* reserved = ReserveEntryForThread();
   tls = *entry = reserved;
 
-  Thread::RegisterTls((uint64_t*)&tls, (uint64_t) nullptr);
+  // Thread::RegisterTls((uint64_t*)&tls, (uint64_t) nullptr);
 
-  return Status::OK();
+  return true;
 }
 
 uint32_t Murmur3(uint32_t h) {
@@ -694,8 +698,8 @@ EpochManager::MinEpochTable::Entry* EpochManager::MinEpochTable::ReserveEntry(
 
 bool EpochManager::MinEpochTable::IsProtected() {
   Entry* entry = nullptr;
-  Status s = GetEntryForThread(&entry);
-  CHECK_EQ(s.ok(), true);
+  auto s = GetEntryForThread(&entry);
+  CHECK_EQ(s, true);
   // It's myself checking my own protected_epoch, safe to use relaxed
   return entry->protected_epoch.load(std::memory_order_relaxed) != 0;
 }
