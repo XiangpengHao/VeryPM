@@ -11,8 +11,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC")
 set(CMAKE_ENABLE_COMPILE_COMMANDS "ON")
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-  # message("-- Debug mode, sanitizers enabled")
-  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address,undefined")
 elseif (${CMAKE_BUILD_TYPE} STREQUAL "Release")
   message("-- Release mode, all optimizations enabled")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Ofast -march=native")
