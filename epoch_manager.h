@@ -4,9 +4,12 @@
 
 #pragma once
 
+#ifdef TEST_BUILD
 #include <glog/logging.h>
 #include <glog/raw_logging.h>
 #include <gtest/gtest_prod.h>
+#endif
+
 #include <atomic>
 #include <cstdint>
 #include <list>
@@ -475,9 +478,11 @@ bool EpochManager::MinEpochTable::Initialize(uint64_t size) {
   Entry* new_table = new Entry[size];
   if (!new_table) return false;
 
+#ifdef TEST_BUILD
   // Ensure the table is cacheline size aligned.
   RAW_CHECK(!(reinterpret_cast<uintptr_t>(new_table) & (CACHELINE_SIZE - 1)),
             "table is not cacheline aligned");
+#endif
 
   table_ = new_table;
   size_ = size;
@@ -574,10 +579,12 @@ bool EpochManager::MinEpochTable::Unprotect(Epoch currentEpoch) {
     return false;
   }
 
+#ifdef TEST_BUILD
   LOG_IF(INFO, entry->thread_id.load() != pthread_self())
       << "thread_id: " << entry->thread_id.load()
       << "; pthread_self():" << pthread_self() << std::endl;
-  // DCHECK(entry->thread_id.load() == pthread_self());
+#endif
+
   entry->last_unprotected_epoch = currentEpoch;
   std::atomic_thread_fence(std::memory_order_release);
   entry->protected_epoch.store(0, std::memory_order_relaxed);

@@ -4,7 +4,10 @@
 
 #pragma once
 
+#ifdef TEST_BUILD
 #include <glog/raw_logging.h>
+#endif
+
 #include <atomic>
 #include <mutex>
 #include "epoch_manager.h"
@@ -178,7 +181,9 @@ class GarbageListUnsafe : public IGarbageList {
       Item& item = items_[slot];
 
       Epoch priorItemEpoch = item.removal_epoch;
+#ifdef TEST_BUILD
       RAW_CHECK(priorItemEpoch != invalid_epoch, "invalid priorItemEpoch");
+#endif
 
       // No synchronization for a single thread; guaranteed to succeed
       item.removal_epoch = invalid_epoch;
