@@ -244,6 +244,7 @@ class EpochManager {
     bool IsProtected();
 
    private:
+#ifdef TEST_BUILD
     FRIEND_TEST(EpochManagerTest, Protect);
     FRIEND_TEST(EpochManagerTest, Unprotect);
     FRIEND_TEST(EpochManagerTest, ComputeNewSafeToReclaimEpoch);
@@ -256,6 +257,7 @@ class EpochManager {
     FRIEND_TEST(MinEpochTableTest, getEntryForThread_OneSlotFree);
     FRIEND_TEST(MinEpochTableTest, reserveEntryForThread);
     FRIEND_TEST(MinEpochTableTest, reserveEntry);
+#endif
 
     /// Thread protection status entries. Threads lock entries the first time
     /// the call Protect() (see reserveEntryForThread()). See documentation for
@@ -712,7 +714,9 @@ EpochManager::MinEpochTable::Entry* EpochManager::MinEpochTable::ReserveEntry(
 bool EpochManager::MinEpochTable::IsProtected() {
   Entry* entry = nullptr;
   auto s = GetEntryForThread(&entry);
+#ifdef TEST_BUILD
   CHECK_EQ(s, true);
+#endif
   // It's myself checking my own protected_epoch, safe to use relaxed
   return entry->protected_epoch.load(std::memory_order_relaxed) != 0;
 }
