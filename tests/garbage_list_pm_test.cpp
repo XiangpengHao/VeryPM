@@ -56,6 +56,7 @@ class GarbageListPMTest : public ::testing::Test {
   virtual void TearDown() {
     EXPECT_TRUE(garbage_list_.Uninitialize());
     EXPECT_TRUE(epoch_manager_.Uninitialize());
+    pmemobj_close(pool_);
     Thread::ClearRegistry(true);
   }
 };
@@ -66,6 +67,16 @@ TEST_F(GarbageListPMTest, Uninitialize) {
   EXPECT_TRUE(garbage_list_.Push(&items[0], MockItem::Destroy, nullptr));
   EXPECT_TRUE(garbage_list_.Push(&items[1], MockItem::Destroy, nullptr));
   EXPECT_TRUE(garbage_list_.Uninitialize());
+  EXPECT_EQ(1, items[0].deallocations);
+  EXPECT_EQ(1, items[1].deallocations);
+}
+
+TEST_F(GarbageListPMTest, Recovery) {
+  MockItem items[2];
+
+  EXPECT_TRUE(garbage_list_.Push(&items[0], MockItem::Destroy, nullptr));
+  EXPECT_TRUE(garbage_list_.Push(&items[1], MockItem::Destroy, nullptr));
+  EXPECT_TRUE(garbage_list_.Recovery(&epoch_manager_, pool_));
   EXPECT_EQ(1, items[0].deallocations);
   EXPECT_EQ(1, items[1].deallocations);
 }

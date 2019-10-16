@@ -2,7 +2,7 @@
 
 [![Build Status](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_apis/build/status/XiangpengHao.epoch-reclaimer?branchName=master)](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_build/latest?definitionId=1&branchName=master)
 
-Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas), all bugs are mine.
+Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas) with a few new features, all bugs are mine.
 
 ## Features
 
@@ -12,11 +12,13 @@ Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas), all bugs are mi
 
 - Header-only
 
+- Experimental persistent memory support
+
 ## Build
 
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE={Debug|Release} ..
+cmake -DCMAKE_BUILD_TYPE={Debug|Release} -DPMEM={0|1} ..
 make tests
 ```
 
@@ -68,4 +70,19 @@ garbage_list_.Push(new MockItem(), MockItem::Destroy, nullptr);
 garbage_list_.Push(new MockItem(), MockItem::Destroy, nullptr);
 ```
 
+
+## Persistent Memory support
+
+We require [PMDK](https://pmem.io/pmdk/) to support safe and efficient persistent memory operations.
+
+
+```c++
+pool_ = pmemobj_open(pool_name, layout_name, pool_size, CREATE_MODE_RW);
+
+// to create a new garbage list
+garbage_list_.Initialize(&epoch_manager_, pool_, 1024);
+
+// to recover an existing garbage list
+garbage_list_.Recovery(&epoch_manager_, pool_);
+```
 

@@ -8,6 +8,8 @@
 POBJ_LAYOUT_BEGIN(garbagelist);
 POBJ_LAYOUT_TOID(garbagelist, char)
 POBJ_LAYOUT_END(garbagelist)
+
+static const constexpr uint64_t PMDK_PADDING = 48;
 #endif
 
 template <typename T>
@@ -141,11 +143,13 @@ class GarbageList : public IGarbageList {
     // TODO(hao): better error handling
     PMEMoid ptr;
     TX_BEGIN(pool_) {
-      // dirty hack to workaround pmdk's allocator padding
-      pmemobj_zalloc(pool_, &ptr, nItemArraySize + 48, TOID_TYPE_NUM(char));
-      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) + 48);
-      std::cout << nItemArraySize << std::endl;
-      std::cout << items_ << std::endl;
+      // Every PMDK allocation so far will pad to 64 cacheline boundry.
+      // To prevent memory leak, pmdk will chain the allocations by adding a
+      // 16-byte pointer at the beginning of the requested memory, which breaks
+      // the memory alignment. the PMDK_PADDING is to force pad again
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize + PMDK_PADDING,
+                     TOID_TYPE_NUM(char));
+      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) + PMDK_PADDING);
     }
     TX_END
 #else
@@ -187,7 +191,7 @@ class GarbageList : public IGarbageList {
     }
 
 #ifdef PMEM
-    auto oid = pmemobj_oid((char*)items_);
+    auto oid = pmemobj_oid((char*)items_ - PMDK_PADDING);
     pmemobj_free(&oid);
 #else
     delete items_;
@@ -273,13 +277,11 @@ class GarbageList : public IGarbageList {
       *((volatile Epoch*)&stack_item.removal_epoch) = removal_epoch;
 
 #ifdef PMEM
-      _mm256_stream_si256((__m256i*)(items_ + slot), *(__m256i*)&stack_item);
-#else
-      // items_[slot] = stack_item;
-      auto value =
-          _mm256_set_epi64x((int64_t)callback, (int64_t)context,
-                            (int64_t)removed_item, (int64_t)removal_epoch);
+      auto value = _mm256_set_epi64x((int64_t)removed_item, (int64_t)context,
+                                     (int64_t)callback, (int64_t)removal_epoch);
       _mm256_stream_si256((__m256i*)(items_ + slot), value);
+#else
+      items_[slot] = stack_item;
 #endif
       return true;
     }
@@ -291,13 +293,19 @@ class GarbageList : public IGarbageList {
   /// we call the destroy callback.
   bool Recovery(EpochManager* epoch_manager, PMEMobjpool* pmdk_pool) {
     const uint64_t invalid_epoch = ~0llu;
+
+    uint32_t reclaimed{0};
     for (size_t i = 0; i < item_count_; ++i) {
       Item& item = items_[i];
       if (item.removed_item != nullptr) {
         item.destroy_callback(item.destroy_callback_context, item.removed_item);
         new (&items_[i]) Item{};
+        reclaimed += 1;
       }
     }
+#ifdef TEST_BUILD
+    LOG(INFO)<<"[Garbage List]: reclaimed "<<reclaimed<<" items."<<std::endl;
+#endif
     tail_ = 0;
     epoch_manager_ = epoch_manager;
     pmdk_pool_ = pmdk_pool;
@@ -349,7 +357,9 @@ class GarbageList : public IGarbageList {
       stack_item.removed_item = nullptr;
       *((volatile Epoch*)&stack_item.removal_epoch) = 0;
 #ifdef PMEM
-      _mm256_stream_si256((__m256i*)(items_ + slot), *(__m256i*)&stack_item);
+      auto value =
+          _mm256_set_epi64x((int64_t)0, (int64_t)0, (int64_t)0, (int64_t)0);
+      _mm256_stream_si256((__m256i*)(items_ + slot), value);
 #else
       items_[slot] = stack_item;
 #endif
