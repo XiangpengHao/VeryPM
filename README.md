@@ -30,6 +30,29 @@ struct MockItem {
   static void Destroy(void* destroyContext, void* p) {
     // some complex memory cleanup
   }
+
+  /*
+   * Usage one: manual epoch management
+   * */ 
+  void SolveNP(){
+    epoch_manager_->Protect();
+
+    // some algorithms to solve SAT
+
+    epoch_manager_->Unprotect(); 
+  }
+
+
+  /*
+   * Usage two: use epoch guard to automatically protect and unprotect
+   * Makes it easy to ensure epoch protection boundaries tightly adhere to stack life
+   * time even with complex control flow.
+   * */
+  void SolveP(){
+    EpochGuard guard();
+
+    // Some algorithms
+  }
 };
 
 

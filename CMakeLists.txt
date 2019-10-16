@@ -42,6 +42,13 @@ if (NOT glog_POPULATED)
   add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
 endif()
 
+option(PMEM "support persistent memory" OFF)
+if(${PMEM})
+  set(PMDK_LIB_PATH "/usr/local/lib" CACHE STRING "PMDK lib install path")
+  message("Build with persistent memory support, PMDK path:" ${PMDK_LIB_PATH})
+  add_library(pmemobj SHARED IMPORTED)
+  set_property(TARGET pmemobj PROPERTY IMPORTED_LOCATION ${PMDK_LIB_PATH}/libpmemobj.so)
+endif()
 
 enable_testing()
 
