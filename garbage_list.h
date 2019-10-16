@@ -1,6 +1,17 @@
 #pragma once
 #include "epoch_manager.h"
 
+#include <x86intrin.h>
+#ifdef PMEM
+#include <libpmemobj.h>
+
+POBJ_LAYOUT_BEGIN(garbagelist);
+POBJ_LAYOUT_TOID(garbagelist, char)
+POBJ_LAYOUT_END(garbagelist)
+
+static const constexpr uint64_t PMDK_PADDING = 48;
+#endif
+
 template <typename T>
 T CompareExchange64(T* destination, T new_value, T comparand) {
   static_assert(sizeof(T) == 8,
@@ -110,8 +121,14 @@ class GarbageList : public IGarbageList {
   ///      The instance was already initialized; no effect.
   /// \retval E_INVALIDARG
   ///      \a nItems wasn't a power of two.
+
+#ifdef PMEM
+  virtual bool Initialize(EpochManager* epoch_manager, PMEMobjpool* pool_,
+                          size_t item_count = 128 * 1024) {
+#else
   virtual bool Initialize(EpochManager* epoch_manager,
                           size_t item_count = 128 * 1024) {
+#endif
     if (epoch_manager_) return true;
 
     if (!epoch_manager) return false;
@@ -122,9 +139,22 @@ class GarbageList : public IGarbageList {
 
     size_t nItemArraySize = sizeof(*items_) * item_count;
 
-    // FIXME:
-    // this piece of memory should be nvm-aware.
+#ifdef PMEM
+    // TODO(hao): better error handling
+    PMEMoid ptr;
+    TX_BEGIN(pool_) {
+      // Every PMDK allocation so far will pad to 64 cacheline boundry.
+      // To prevent memory leak, pmdk will chain the allocations by adding a
+      // 16-byte pointer at the beginning of the requested memory, which breaks
+      // the memory alignment. the PMDK_PADDING is to force pad again
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize + PMDK_PADDING,
+                     TOID_TYPE_NUM(char));
+      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) + PMDK_PADDING);
+    }
+    TX_END
+#else
     posix_memalign((void**)&items_, 64, nItemArraySize);
+#endif
 
     if (!items_) return false;
 
@@ -160,9 +190,12 @@ class GarbageList : public IGarbageList {
       }
     }
 
-    // FIXME:
-    // Deallocation should be nvm-aware
+#ifdef PMEM
+    auto oid = pmemobj_oid((char*)items_ - PMDK_PADDING);
+    pmemobj_free(&oid);
+#else
     delete items_;
+#endif
 
     items_ = nullptr;
     tail_ = 0;
@@ -237,15 +270,48 @@ class GarbageList : public IGarbageList {
         item.destroy_callback(item.destroy_callback_context, item.removed_item);
       }
 
-      // Now populate the entry with the new item.
-      item.destroy_callback = callback;
-      item.destroy_callback_context = context;
-      item.removed_item = removed_item;
-      *((volatile Epoch*)&item.removal_epoch) = removal_epoch;
+      Item stack_item;
+      stack_item.destroy_callback = callback;
+      stack_item.destroy_callback_context = context;
+      stack_item.removed_item = removed_item;
+      *((volatile Epoch*)&stack_item.removal_epoch) = removal_epoch;
 
+#ifdef PMEM
+      auto value = _mm256_set_epi64x((int64_t)removed_item, (int64_t)context,
+                                     (int64_t)callback, (int64_t)removal_epoch);
+      _mm256_stream_si256((__m256i*)(items_ + slot), value);
+#else
+      items_[slot] = stack_item;
+#endif
       return true;
     }
   }
+
+#ifdef PMEM
+  /// Recover the grabage list from a user specified location
+  /// Scan all the items in the larbage list, if any item that is not nullptr,
+  /// we call the destroy callback.
+  bool Recovery(EpochManager* epoch_manager, PMEMobjpool* pmdk_pool) {
+    const uint64_t invalid_epoch = ~0llu;
+
+    uint32_t reclaimed{0};
+    for (size_t i = 0; i < item_count_; ++i) {
+      Item& item = items_[i];
+      if (item.removed_item != nullptr) {
+        item.destroy_callback(item.destroy_callback_context, item.removed_item);
+        new (&items_[i]) Item{};
+        reclaimed += 1;
+      }
+    }
+#ifdef TEST_BUILD
+    LOG(INFO)<<"[Garbage List]: reclaimed "<<reclaimed<<" items."<<std::endl;
+#endif
+    tail_ = 0;
+    epoch_manager_ = epoch_manager;
+    pmdk_pool_ = pmdk_pool;
+    return true;
+  }
+#endif
 
   /// Scavenge items that are safe to be reused - useful when the user cannot
   /// wait until the garbage list is full. Currently (May 2016) the only user is
@@ -285,10 +351,18 @@ class GarbageList : public IGarbageList {
       }
 
       // Now reset the entry
-      item.destroy_callback = nullptr;
-      item.destroy_callback_context = nullptr;
-      item.removed_item = nullptr;
-      *((volatile Epoch*)&item.removal_epoch) = 0;
+      Item stack_item;
+      stack_item.destroy_callback = nullptr;
+      stack_item.destroy_callback_context = nullptr;
+      stack_item.removed_item = nullptr;
+      *((volatile Epoch*)&stack_item.removal_epoch) = 0;
+#ifdef PMEM
+      auto value =
+          _mm256_set_epi64x((int64_t)0, (int64_t)0, (int64_t)0, (int64_t)0);
+      _mm256_stream_si256((__m256i*)(items_ + slot), value);
+#else
+      items_[slot] = stack_item;
+#endif
     }
 
     return scavenged;
@@ -319,4 +393,8 @@ class GarbageList : public IGarbageList {
   /// would replace an already occupied slot the entry in the slot is freed,
   /// if possible.
   Item* items_;
+
+#ifdef PMEM
+  PMEMobjpool* pmdk_pool_;
+#endif
 };
