@@ -1,6 +1,16 @@
 #pragma once
 #include "epoch_manager.h"
 
+
+#ifdef PMEM
+#include <libpmemobj.h>
+#include <x86intrin.h>
+
+POBJ_LAYOUT_BEGIN(garbagelist);
+POBJ_LAYOUT_TOID(garbagelist, char)
+POBJ_LAYOUT_END(garbagelist)
+#endif
+
 template <typename T>
 T CompareExchange64(T* destination, T new_value, T comparand) {
   static_assert(sizeof(T) == 8,
@@ -110,8 +120,14 @@ class GarbageList : public IGarbageList {
   ///      The instance was already initialized; no effect.
   /// \retval E_INVALIDARG
   ///      \a nItems wasn't a power of two.
+
+#ifdef PMEM
+  virtual bool Initialize(EpochManager* epoch_manager, PMEMobjpool* pool_,
+                          size_t item_count = 128 * 1024) {
+#else
   virtual bool Initialize(EpochManager* epoch_manager,
                           size_t item_count = 128 * 1024) {
+#endif
     if (epoch_manager_) return true;
 
     if (!epoch_manager) return false;
@@ -122,9 +138,17 @@ class GarbageList : public IGarbageList {
 
     size_t nItemArraySize = sizeof(*items_) * item_count;
 
-    // FIXME:
-    // this piece of memory should be nvm-aware.
+#ifdef PMEM
+    // TODO(hao): better error handling
+    PMEMoid ptr;
+    TX_BEGIN(pool_) {
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize, TOID_TYPE_NUM(char));
+      items_ = (GarbageList::Item*)pmemobj_direct(ptr);
+    }
+    TX_END
+#else
     posix_memalign((void**)&items_, 64, nItemArraySize);
+#endif
 
     if (!items_) return false;
 
@@ -160,9 +184,11 @@ class GarbageList : public IGarbageList {
       }
     }
 
-    // FIXME:
-    // Deallocation should be nvm-aware
+#ifdef PMEM
+    pmemobj_free(&pmemobj_oid(items_));
+#else
     delete items_;
+#endif
 
     items_ = nullptr;
     tail_ = 0;
@@ -237,15 +263,39 @@ class GarbageList : public IGarbageList {
         item.destroy_callback(item.destroy_callback_context, item.removed_item);
       }
 
-      // Now populate the entry with the new item.
-      item.destroy_callback = callback;
-      item.destroy_callback_context = context;
-      item.removed_item = removed_item;
-      *((volatile Epoch*)&item.removal_epoch) = removal_epoch;
+      Item stack_item;
+      stack_item.destroy_callback = callback;
+      stack_item.destroy_callback_context = context;
+      stack_item.removed_item = removed_item;
+      *((volatile Epoch*)&stack_item.removal_epoch) = removal_epoch;
 
+#ifdef PMEM
+      _mm256_stream_si256((__m256i*)(items_ + slot), *(__m256i*)&stack_item);
+#else
+      items_[slot] = stack_item;
+#endif
       return true;
     }
   }
+
+#ifdef PMEM
+  /// Recover the grabage list from a user specified location
+  /// Scan all the items in the larbage list, if any item that is not nullptr,
+  /// we call the destroy callback.
+  bool Recovery(EpochManager* epoch_manager, PMEMobjpool* pmdk_pool) {
+    const uint64_t invalid_epoch = ~0llu;
+    for (size_t i = 0; i < item_count_; ++i) {
+      Item& item = items_[i];
+      if (item.removed_item != nullptr) {
+        item.destroy_callback(item.destroy_callback_context, item.removed_item);
+        new (&items_[i]) Item{};
+      }
+    }
+    tail_ = 0;
+    epoch_manager_ = epoch_manager;
+    pmdk_pool_ = pmdk_pool;
+  }
+#endif
 
   /// Scavenge items that are safe to be reused - useful when the user cannot
   /// wait until the garbage list is full. Currently (May 2016) the only user is
@@ -285,10 +335,16 @@ class GarbageList : public IGarbageList {
       }
 
       // Now reset the entry
-      item.destroy_callback = nullptr;
-      item.destroy_callback_context = nullptr;
-      item.removed_item = nullptr;
-      *((volatile Epoch*)&item.removal_epoch) = 0;
+      Item stack_item;
+      stack_item.destroy_callback = nullptr;
+      stack_item.destroy_callback_context = nullptr;
+      stack_item.removed_item = nullptr;
+      *((volatile Epoch*)&stack_item.removal_epoch) = 0;
+#ifdef PMEM
+      _mm256_stream_si256((__m256i*)(items_ + slot), *(__m256i*)&stack_item);
+#else
+      items_[slot] = stack_item;
+#endif
     }
 
     return scavenged;
@@ -319,4 +375,8 @@ class GarbageList : public IGarbageList {
   /// would replace an already occupied slot the entry in the slot is freed,
   /// if possible.
   Item* items_;
+
+#ifdef PMEM
+  PMEMobjpool* pmdk_pool_;
+#endif
 };
