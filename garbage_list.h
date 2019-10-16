@@ -1,10 +1,9 @@
 #pragma once
 #include "epoch_manager.h"
 
-
+#include <x86intrin.h>
 #ifdef PMEM
 #include <libpmemobj.h>
-#include <x86intrin.h>
 
 POBJ_LAYOUT_BEGIN(garbagelist);
 POBJ_LAYOUT_TOID(garbagelist, char)
@@ -142,8 +141,11 @@ class GarbageList : public IGarbageList {
     // TODO(hao): better error handling
     PMEMoid ptr;
     TX_BEGIN(pool_) {
-      pmemobj_zalloc(pool_, &ptr, nItemArraySize, TOID_TYPE_NUM(char));
-      items_ = (GarbageList::Item*)pmemobj_direct(ptr);
+      // dirty hack to workaround pmdk's allocator padding
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize + 48, TOID_TYPE_NUM(char));
+      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) + 48);
+      std::cout << nItemArraySize << std::endl;
+      std::cout << items_ << std::endl;
     }
     TX_END
 #else
@@ -185,7 +187,8 @@ class GarbageList : public IGarbageList {
     }
 
 #ifdef PMEM
-    pmemobj_free(&pmemobj_oid(items_));
+    auto oid = pmemobj_oid((char*)items_);
+    pmemobj_free(&oid);
 #else
     delete items_;
 #endif
@@ -272,7 +275,11 @@ class GarbageList : public IGarbageList {
 #ifdef PMEM
       _mm256_stream_si256((__m256i*)(items_ + slot), *(__m256i*)&stack_item);
 #else
-      items_[slot] = stack_item;
+      // items_[slot] = stack_item;
+      auto value =
+          _mm256_set_epi64x((int64_t)callback, (int64_t)context,
+                            (int64_t)removed_item, (int64_t)removal_epoch);
+      _mm256_stream_si256((__m256i*)(items_ + slot), value);
 #endif
       return true;
     }
@@ -294,6 +301,7 @@ class GarbageList : public IGarbageList {
     tail_ = 0;
     epoch_manager_ = epoch_manager;
     pmdk_pool_ = pmdk_pool;
+    return true;
   }
 #endif
 
