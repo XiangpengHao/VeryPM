@@ -111,6 +111,6 @@ garbage_list_.ResetItem(mem);
 ```
 
 #### Caveat
-Although both `ReserveMemory` and `ResetItem` is crash/thread safe, they are typically protected under a transaction,
+Although both `ReserveMemory` and `ResetItem` is crash/thread safe, when being used, they are typically protected by a (PMDK) transaction,
  because these functions implicitly implied ownership transfer which requires multi-cache line operations.
 
