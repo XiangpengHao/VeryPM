@@ -75,6 +75,7 @@ garbage_list_.Push(new MockItem(), MockItem::Destroy, nullptr);
 
 We require [PMDK](https://pmem.io/pmdk/) to support safe and efficient persistent memory operations.
 
+### Recovery
 
 ```c++
 pool_ = pmemobj_open(pool_name, layout_name, pool_size, CREATE_MODE_RW);
@@ -85,4 +86,31 @@ garbage_list_.Initialize(&epoch_manager_, pool_, 1024);
 // to recover an existing garbage list
 garbage_list_.Recovery(&epoch_manager_, pool_);
 ```
+
+### Reserve Memory
+
+Some persistent memory allocator, e.g. PMDK's, requires applications to pass a pre-existing memory location to store the pointer to the allocated memory.
+
+For example:
+```c++
+void* mem = nullptr;
+posix_memalign(&mem, CACHELINE_SIZE, size);
+```
+It's not safe to store the `mem` on the stack, thus requires the application to mantain an `allocation list`, 
+or significantly change the implementation, so there is this function:
+
+```c++
+void* mem = garbage_list_.ReserveMemory();
+posix_memalign(&mem, CACHELINE_SIZE, size);
+```
+
+After the `mem` is hand back to the data structure, the reserved memory slot should be cleared, otherwise it will be reclaimed on recovery:
+
+```c++
+garbage_list_.ResetItem(mem);
+```
+
+#### Caveat
+Although both `ReserveMemory` and `ResetItem` is crash/thread safe, they are typically protected under a transaction,
+ because these functions implicitly implied ownership transfer which requires multi-cache line operations.
 

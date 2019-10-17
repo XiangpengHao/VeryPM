@@ -81,6 +81,27 @@ TEST_F(GarbageListPMTest, Recovery) {
   EXPECT_EQ(1, items[1].deallocations);
 }
 
+TEST_F(GarbageListPMTest, ReserveMemory) {
+  const uint64_t test_items = 20;
+  std::vector<void*> reserved_vec(test_items);
+  for (int i = 0; i < test_items; i += 1) {
+    void* reserved = garbage_list_.ReserveMemory();
+    reserved_vec[i] = reserved;
+  }
+  for (int i = 0; i < garbage_list_.tail_ - 1; i += 1) {
+    auto& item = garbage_list_.items_[i];
+    EXPECT_EQ(item.removal_epoch, garbage_list_.invalid_epoch);
+  }
+
+  for (auto res : reserved_vec) {
+    garbage_list_.ResetItem(res);
+  }
+  for (int i = 0; i < garbage_list_.tail_ - 1; i += 1) {
+    auto& item = garbage_list_.items_[i];
+    EXPECT_EQ(item.removal_epoch, 0);
+  }
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
