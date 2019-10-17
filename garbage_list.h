@@ -1,6 +1,6 @@
 #pragma once
 #include "epoch_manager.h"
-
+#include <cassert>
 #include <x86intrin.h>
 #ifdef PMEM
 #include <libpmemobj.h>
