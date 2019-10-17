@@ -96,8 +96,8 @@ For example:
 void* mem = nullptr;
 posix_memalign(&mem, CACHELINE_SIZE, size);
 ```
-It's not safe to store the `mem` on the stack, thus requires the application to mantain an `allocation list`, 
-or significantly change the implementation, so there is this function:
+Storing `mem` on the stack is not safe, thus requires the application to mantain an `allocation list`, 
+or even change the implementation significantly, so there is this function:
 
 ```c++
 void* mem = garbage_list_.ReserveMemory();
