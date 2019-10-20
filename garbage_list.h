@@ -99,18 +99,19 @@ class GarbageList : public IGarbageList {
       return reinterpret_cast<Item*>((char*)mem - 24);
     }
 
-    void SetValue(void* removed_item, DestroyCallback callback, void* context) {
+    void SetValue(void* removed_item, Epoch epoch, DestroyCallback callback,
+                  void* context) {
       assert(this->removal_epoch == invalid_epoch);
 
 #ifdef PMEM
       auto value = _mm256_set_epi64x((int64_t)removed_item, (int64_t)context,
-                                     (int64_t)callback, (int64_t)removal_epoch);
+                                     (int64_t)callback, (int64_t)epoch);
       _mm256_stream_si256((__m256i*)(this), value);
 #else
       this->destroy_callback = callback;
       this->destroy_callback_context = context;
       this->removed_item = removed_item;
-      this->removal_epoch = removal_epoch;
+      this->removal_epoch = epoch;
 #endif
     }
   };
