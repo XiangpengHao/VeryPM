@@ -100,8 +100,8 @@ Storing `mem` on the stack is not safe, thus requires the application to mantain
 or even change the implementation significantly, so there is this function:
 
 ```c++
-void* mem = garbage_list_.ReserveMemory();
-posix_memalign(&mem, CACHELINE_SIZE, size);
+Garbagelist::Item* mem = garbage_list_.ReserveItem();
+posix_memalign(&mem.removed_item, CACHELINE_SIZE, size);
 ```
 
 After the `mem` is hand back to the data structure, the reserved memory slot should be cleared, otherwise it will be reclaimed on recovery:

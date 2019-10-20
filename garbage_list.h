@@ -1,7 +1,7 @@
 #pragma once
-#include "epoch_manager.h"
-#include <cassert>
 #include <x86intrin.h>
+#include <cassert>
+#include "epoch_manager.h"
 #ifdef PMEM
 #include <libpmemobj.h>
 
@@ -97,6 +97,21 @@ class GarbageList : public IGarbageList {
     /// Used to get back the item based on the mem provided.
     static Item* GetItemFromRemoved(void* mem) {
       return reinterpret_cast<Item*>((char*)mem - 24);
+    }
+
+    void SetValue(void* removed_item, DestroyCallback callback, void* context) {
+      assert(this->removal_epoch == invalid_epoch);
+
+#ifdef PMEM
+      auto value = _mm256_set_epi64x((int64_t)removed_item, (int64_t)context,
+                                     (int64_t)callback, (int64_t)removal_epoch);
+      _mm256_stream_si256((__m256i*)(this), value);
+#else
+      this->destroy_callback = callback;
+      this->destroy_callback_context = context;
+      this->removed_item = removed_item;
+      this->removal_epoch = removal_epoch;
+#endif
     }
   };
   static_assert(std::is_pod<Item>::value, "Item should be POD");
@@ -295,7 +310,7 @@ class GarbageList : public IGarbageList {
   /// Used to reserve a place for (persistent memory) allocators that requires a
   /// pre-existing memory location. The corresponding removal_epoch will be
   /// marked as invalid epoch.
-  void* ReserveMemory() {
+  Item* ReserveItem() {
     Epoch removal_epoch = epoch_manager_->GetCurrentEpoch();
     for (;;) {
       int64_t slot = (tail_.fetch_add(1) - 1) & (item_count_ - 1);
@@ -328,14 +343,13 @@ class GarbageList : public IGarbageList {
         }
         item.destroy_callback(item.destroy_callback_context, item.removed_item);
       }
-      return &item.removed_item;
+      return &item;
     }
   }
 
   /// The counterpart of ReserveMemory, used to reset the item so that the item
   /// can be reused and the corresponding memory won't be recliamed on recovery
-  bool ResetItem(void* mem) {
-    Item* item = Item::GetItemFromRemoved(mem);
+  bool ResetItem(Item* item) {
     auto old_epoch = item->removal_epoch;
     assert(old_epoch == invalid_epoch);
     item->removal_epoch = 0;

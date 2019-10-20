@@ -83,9 +83,9 @@ TEST_F(GarbageListPMTest, Recovery) {
 
 TEST_F(GarbageListPMTest, ReserveMemory) {
   const uint64_t test_items = 20;
-  std::vector<void*> reserved_vec(test_items);
+  std::vector<GarbageList::Item*> reserved_vec(test_items);
   for (int i = 0; i < test_items; i += 1) {
-    void* reserved = garbage_list_.ReserveMemory();
+    GarbageList::Item* reserved = garbage_list_.ReserveItem();
     reserved_vec[i] = reserved;
   }
   for (int i = 0; i < garbage_list_.tail_ - 1; i += 1) {
