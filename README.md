@@ -101,16 +101,18 @@ or even change the implementation significantly, so there is this function:
 
 ```c++
 Garbagelist::Item* mem = garbage_list_.ReserveItem();
-posix_memalign(&mem.removed_item, CACHELINE_SIZE, size);
+posix_memalign(&mem->removed_item, CACHELINE_SIZE, size);
 ```
 
-After the `mem` is hand back to the data structure, the reserved memory slot should be cleared, otherwise it will be reclaimed on recovery:
+The `mem->removed_item` is used to temporarily take the ownership of the allocated memory.
+
+After the `mem->removed_item` is handed back to the data structure, the reserved memory slot should be cleared, otherwise it will be reclaimed on recovery:
 
 ```c++
 garbage_list_.ResetItem(mem);
 ```
 
 #### Caveat
-Although both `ReserveMemory` and `ResetItem` is crash/thread safe, when being used, they are typically protected by a (PMDK) transaction,
+Although both `ReserveItem` and `ResetItem` is crash/thread safe, when being used, typically they are protected by a (PMDK) transaction,
  because these functions implicitly implied ownership transfer which requires multi-cache line operations.
 
