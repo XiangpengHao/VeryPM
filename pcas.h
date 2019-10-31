@@ -56,6 +56,20 @@ class DirtyTable {
     _mm256_stream_si256((__m256i*)(my_item), value);
   }
 
+  /// Why a single CAS is not enough?
+  ///   Checkout this post: https://blog.haoxp.xyz/posts/crash-consistency/
+  ///
+  /// The RegisterItem will record the CAS operation, and on recovery try to
+  /// redo the CAS.
+  ///   1. If a crash happens right after the RegisterItem, the new
+  ///   value is not seen by any other thread and we are good to redo the CAS
+  ///   during recovery.
+  ///   2. If a crash happens right after the CAS, before the new value is
+  ///   persisted, on recovery we can help finish the CAS, make it in a
+  ///   consistent state
+  ///   3. The only worry for me right now, is when CAS is finished and
+  ///   persisted, on recovery we will still try to redo the CAS. This should be
+  ///   fine in most cases, but the chances to hit ABA problem is much higher.
   bool PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
     RegisterItem(addr, old_v, new_v);
     __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
