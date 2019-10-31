@@ -9,7 +9,34 @@
 namespace pm_tool {
 
 class DirtyTable {
- private:
+ public:
+  static void Initialize(DirtyTable* table, uint32_t item_cnt) {
+    table_ = table;
+    table_->item_cnt_ = item_cnt;
+    table_->next_free_object_ = 0;
+    memset(table_->items_, 0, sizeof(Item) * item_cnt);
+  }
+
+  static void Recovery(DirtyTable* table) {
+    for (uint32_t i = 0; i < table->item_cnt_; i += 1) {
+      auto& item = table->items_[i];
+      if (item.addr_ == nullptr) {
+        continue;
+      }
+      __atomic_compare_exchange_n((uint64_t*)item.addr_, &item.old_, item.new_,
+                                  false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+      flush(item.addr_);
+    }
+    table->next_free_object_ = 0;
+    memset(table->items_, 0, sizeof(Item) * table->item_cnt_);
+  }
+
+  static DirtyTable* GetInstance() { return table_; }
+
+  DirtyTable(DirtyTable const&) = delete;
+  void operator=(DirtyTable const&) = delete;
+  DirtyTable() = delete;
+
   /// Item is only padded to half cache line size,
   /// Don't want to waste too much memory
   struct Item {
@@ -18,8 +45,6 @@ class DirtyTable {
     uint64_t new_;
     char paddings_[8];
   };
-
-  DirtyTable(uint32_t item_cnt) : item_cnt_{item_cnt} {}
 
   Item* MyItem() {
     thread_local Item* my_item{nullptr};
@@ -56,37 +81,42 @@ class DirtyTable {
     _mm256_stream_si256((__m256i*)(my_item), value);
   }
 
-  /// Why a single CAS is not enough?
-  ///   Checkout this post: https://blog.haoxp.xyz/posts/crash-consistency/
-  ///
-  /// The RegisterItem will record the CAS operation, and on recovery try to
-  /// redo the CAS.
-  ///   1. If a crash happens right after the RegisterItem, the new
-  ///   value is not seen by any other thread and we are good to redo the CAS
-  ///   during recovery.
-  ///   2. If a crash happens right after the CAS, before the new value is
-  ///   persisted, on recovery we can help finish the CAS, make it in a
-  ///   consistent state
-  ///   3. The only worry for me right now, is when CAS is finished and
-  ///   persisted, on recovery we will still try to redo the CAS. This should be
-  ///   fine in most cases, but the chances to hit ABA problem is much higher.
-  ///
-  /// Why there's no flush for the newly installed value?
-  ///   We typically don't need to, because on recovery we'll be able to redo
-  ///   the CAS. This requires later writers to flush the old value before
-  ///   install new values.
-  bool PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
-    RegisterItem(addr, old_v, new_v);
-    __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
-                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-  }
+ private:
+  static DirtyTable* table_;
 
   std::atomic<uint32_t> next_free_object_{0};
+
   uint32_t item_cnt_{0};
 
   char paddings_[24];
 
   Item items_[0];
 };
+
+/// Why a single CAS is not enough?
+///   Checkout this post: https://blog.haoxp.xyz/posts/crash-consistency/
+///
+/// The RegisterItem will record the CAS operation, and on recovery try to
+/// redo the CAS.
+///   1. If a crash happens right after the RegisterItem, the new
+///   value is not seen by any other thread and we are good to redo the CAS
+///   during recovery.
+///   2. If a crash happens right after the CAS, before the new value is
+///   persisted, on recovery we can help finish the CAS, make it in a
+///   consistent state
+///   3. The only worry for me right now, is when CAS is finished and
+///   persisted, on recovery we will still try to redo the CAS. This should be
+///   fine in most cases, but the chances to hit ABA problem is much higher.
+///
+/// Why there's no flush for the newly installed value?
+///   We typically don't need to, because on recovery we'll be able to redo
+///   the CAS. This requires later writers to flush the old value before
+///   install new values.
+static uint64_t PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
+  DirtyTable::GetInstance()->RegisterItem(addr, old_v, new_v);
+  __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
+                              __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  return old_v;
+}
 
 }  // namespace pm_tool
