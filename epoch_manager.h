@@ -16,17 +16,7 @@
 #include <mutex>
 #include <thread>
 #include "tls_thread.h"
-
-#define IS_POWER_OF_TWO(x) (x && (x & (x - 1)) == 0)
-
-inline uint64_t Murmur3_64(uint64_t h) {
-  h ^= h >> 33;
-  h *= 0xff51afd7ed558ccd;
-  h ^= h >> 33;
-  h *= 0xc4ceb9fe1a85ec53;
-  h ^= h >> 33;
-  return h;
-}
+#include "utils.h"
 
 /// A "timestamp" that is used to determine when it is safe to reuse memory in
 /// data structures that are protected with an EpochManager. Epochs are
