@@ -70,6 +70,10 @@ class DirtyTable {
   ///   3. The only worry for me right now, is when CAS is finished and
   ///   persisted, on recovery we will still try to redo the CAS. This should be
   ///   fine in most cases, but the chances to hit ABA problem is much higher.
+  ///
+  /// Why there's no flush for the newly installed value?
+  ///   We typically don't need to, because on recovery we'll be able to redo
+  ///   the CAS. This requires the later writers to flush the new value.
   bool PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
     RegisterItem(addr, old_v, new_v);
     __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
