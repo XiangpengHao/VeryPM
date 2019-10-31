@@ -73,7 +73,8 @@ class DirtyTable {
   ///
   /// Why there's no flush for the newly installed value?
   ///   We typically don't need to, because on recovery we'll be able to redo
-  ///   the CAS. This requires the later writers to flush the new value.
+  ///   the CAS. This requires later writers to flush the old value before
+  ///   install new values.
   bool PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
     RegisterItem(addr, old_v, new_v);
     __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
