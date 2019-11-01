@@ -121,7 +121,7 @@ struct DirtyCASBench : public BaseBench {
   const char* GetBenchName() override { return "DirtyCASBench"; }
   DirtyCASBench() : BaseBench() {}
 
-  static const uint64_t kDirtyBitMask = 0x8000000000000000;
+  static const uint64_t kDirtyBitMask = 0x8000000000000000ull;
 
   void Entry(size_t thread_idx, size_t thread_count) override {
     if (thread_idx == 0) {
@@ -137,14 +137,21 @@ struct DirtyCASBench : public BaseBench {
       uint32_t pos = dist(rng);
       uint64_t* target =
           array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
-      uint64_t value = *target;
-      uint64_t dirty_value = value | kDirtyBitMask;
 
-      pm_tool::CompareExchange64(target, dirty_value, value);
+      uint64_t old_v = *target;
+      while ((old_v & kDirtyBitMask) != 0) {
+        uint64_t cleared = old_v & (~kDirtyBitMask);
+        pm_tool::CompareExchange64(target, cleared, old_v);
+        old_v = *target;
+      }
+
+      uint64_t new_v = old_v + 1;
+      uint64_t dirty_value = new_v | kDirtyBitMask;
+
+      pm_tool::CompareExchange64(target, dirty_value, old_v);
       pm_tool::flush(target);
       pm_tool::fence();
-      pm_tool::CompareExchange64(target, dirty_value & (~kDirtyBitMask),
-                                 dirty_value);
+      pm_tool::CompareExchange64(target, new_v, dirty_value);
     }
   }
 };

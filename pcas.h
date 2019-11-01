@@ -128,6 +128,7 @@ static uint64_t PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
   DirtyTable::GetInstance()->RegisterItem(addr, old_v, new_v);
   __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
                               __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+  fence();
   return old_v;
 }
 
