@@ -1,4 +1,5 @@
 #pragma once
+#include <sys/stat.h>
 #include <x86intrin.h>
 #include <atomic>
 #include <cstdint>
@@ -24,6 +25,12 @@ T CompareExchange64(T* destination, T new_value, T comparand) {
 }
 
 namespace pm_tool {
+
+static bool FileExists(const char* pool_path) {
+  struct stat buffer;
+  return (stat(pool_path, &buffer) == 0);
+}
+
 static const constexpr uint64_t kCacheLineSize = 64;
 
 static void flush(void* addr) { _mm_clwb(addr); }

@@ -6,15 +6,21 @@
 #include <libpmemobj.h>
 #include "utils.h"
 
+#ifdef TEST_BUILD
+#include <glog/logging.h>
+#include <glog/raw_logging.h>
+#include <gtest/gtest_prod.h>
+#endif
+
 namespace pm_tool {
 
 class DirtyTable {
  public:
   static void Initialize(DirtyTable* table, uint32_t item_cnt) {
-    table_ = table;
-    table_->item_cnt_ = item_cnt;
-    table_->next_free_object_ = 0;
-    memset(table_->items_, 0, sizeof(Item) * item_cnt);
+    DirtyTable::table_ = table;
+    DirtyTable::table_->item_cnt_ = item_cnt;
+    DirtyTable::table_->next_free_object_ = 0;
+    memset(DirtyTable::table_->items_, 0, sizeof(Item) * item_cnt);
   }
 
   static void Recovery(DirtyTable* table) {
@@ -82,6 +88,10 @@ class DirtyTable {
   }
 
  private:
+#ifdef TEST_BUILD
+  FRIEND_TEST(DirtyTablePMTest, SimpleCAS);
+  FRIEND_TEST(DirtyTablePMTest, SimpleRecovery);
+#endif
   static DirtyTable* table_;
 
   std::atomic<uint32_t> next_free_object_{0};
@@ -92,6 +102,8 @@ class DirtyTable {
 
   Item items_[0];
 };
+
+DirtyTable* DirtyTable::table_{nullptr};
 
 /// Why a single CAS is not enough?
 ///   Checkout this post: https://blog.haoxp.xyz/posts/crash-consistency/
