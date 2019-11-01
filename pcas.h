@@ -3,7 +3,6 @@
 //
 // Persistent CAS
 #pragma once
-#include <libpmemobj.h>
 #include "utils.h"
 
 #ifdef TEST_BUILD

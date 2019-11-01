@@ -1,12 +1,13 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <libpmemobj.h>
 #include <random>
 #include "../pcas.h"
 #include "bench_common.h"
 
-POBJ_LAYOUT_BEGIN(garbagelist);
-POBJ_LAYOUT_TOID(garbagelist, char)
-POBJ_LAYOUT_END(garbagelist)
+POBJ_LAYOUT_BEGIN(pcas_layout);
+POBJ_LAYOUT_TOID(pcas_layout, char);
+POBJ_LAYOUT_END(pcas_layout);
 
 struct PCASBench : public PerformanceTest {
   const char* GetBenchName() override { return "PCASBench"; }
