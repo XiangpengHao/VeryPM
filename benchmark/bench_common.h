@@ -42,11 +42,10 @@ class PerformanceTest {
 
   /// Display result, need to be called after the Run()
   void Report(double avg_thread) {
+    std::cout << GetBenchName() << "/thread:" << threads_finished_ << std::endl;
+    std::cout << "thread avg: \t" << YELLOW << avg_thread << RESET << std::endl;
     std::cout << BLUE << "================================" << RESET
               << std::endl;
-    std::cout << GetBenchName() << "/thread:" << threads_finished_ << std::endl;
-
-    std::cout << "thread avg: \t" << YELLOW << avg_thread << RESET << std::endl;
   }
 
   double RunOnce(size_t threadCount) {
