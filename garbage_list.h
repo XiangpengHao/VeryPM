@@ -4,12 +4,9 @@
 #include "epoch_manager.h"
 #ifdef PMEM
 #include <libpmemobj.h>
-
 POBJ_LAYOUT_BEGIN(garbagelist);
 POBJ_LAYOUT_TOID(garbagelist, char)
 POBJ_LAYOUT_END(garbagelist)
-
-static const constexpr uint64_t PMDK_PADDING = 48;
 #endif
 
 template <typename T>
@@ -169,9 +166,10 @@ class GarbageList : public IGarbageList {
       // To prevent memory leak, pmdk will chain the allocations by adding a
       // 16-byte pointer at the beginning of the requested memory, which breaks
       // the memory alignment. the PMDK_PADDING is to force pad again
-      pmemobj_zalloc(pool_, &ptr, nItemArraySize + PMDK_PADDING,
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize + pm_tool::PMDK_PADDING,
                      TOID_TYPE_NUM(char));
-      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) + PMDK_PADDING);
+      items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) +
+                                    pm_tool::PMDK_PADDING);
     }
     TX_END
 #else
@@ -213,7 +211,7 @@ class GarbageList : public IGarbageList {
     }
 
 #ifdef PMEM
-    auto oid = pmemobj_oid((char*)items_ - PMDK_PADDING);
+    auto oid = pmemobj_oid((char*)items_ - pm_tool::PMDK_PADDING);
     pmemobj_free(&oid);
 #else
     delete items_;

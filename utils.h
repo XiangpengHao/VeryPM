@@ -26,6 +26,10 @@ T CompareExchange64(T* destination, T new_value, T comparand) {
 
 namespace pm_tool {
 
+static const constexpr uint64_t CREATE_MODE_RW = (S_IWUSR | S_IRUSR);
+
+static const constexpr uint64_t PMDK_PADDING = 48;
+
 static bool FileExists(const char* pool_path) {
   struct stat buffer;
   return (stat(pool_path, &buffer) == 0);

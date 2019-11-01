@@ -58,4 +58,5 @@ enable_testing()
 
 add_definitions(-DTEST_BUILD)
 add_subdirectory(tests)
+add_subdirectory(benchmark)
 

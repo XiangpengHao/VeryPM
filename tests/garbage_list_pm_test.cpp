@@ -4,8 +4,6 @@
 #include "../garbage_list.h"
 #include "../garbage_list_unsafe.h"
 
-#define CREATE_MODE_RW (S_IWUSR | S_IRUSR)
-
 static const char* pool_name = "garbage_list_pool.data";
 static const char* layout_name = "garbagelist";
 static const uint64_t pool_size = 1024 * 1024 * 1024;
@@ -21,11 +19,6 @@ struct MockItem {
   std::atomic<uint64_t> deallocations;
 };
 
-static bool FileExists(const char* pool_path) {
-  struct stat buffer;
-  return (stat(pool_path, &buffer) == 0);
-}
-
 class GarbageListPMTest : public ::testing::Test {
  public:
   GarbageListPMTest() {}
@@ -38,9 +31,9 @@ class GarbageListPMTest : public ::testing::Test {
 
   virtual void SetUp() {
     PMEMobjpool* tmp_pool;
-    if (!FileExists(pool_name)) {
-      tmp_pool =
-          pmemobj_create(pool_name, layout_name, pool_size, CREATE_MODE_RW);
+    if (!pm_tool::FileExists(pool_name)) {
+      tmp_pool = pmemobj_create(pool_name, layout_name, pool_size,
+                                pm_tool::CREATE_MODE_RW);
       LOG_ASSERT(tmp_pool != nullptr);
     } else {
       tmp_pool = pmemobj_open(pool_name, layout_name);
