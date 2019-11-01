@@ -9,15 +9,6 @@ POBJ_LAYOUT_TOID(garbagelist, char)
 POBJ_LAYOUT_END(garbagelist)
 #endif
 
-template <typename T>
-T CompareExchange64(T* destination, T new_value, T comparand) {
-  static_assert(sizeof(T) == 8,
-                "CompareExchange64 only works on 64 bit values");
-  ::__atomic_compare_exchange_n(destination, &comparand, new_value, false,
-                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-  return comparand;
-}
-
 /// Interface for the GarbageList; used to make it easy to drop is mocked out
 /// garbage lists for unit testing. See GarbageList template below for
 /// full documentation.
