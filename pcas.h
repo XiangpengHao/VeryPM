@@ -82,6 +82,7 @@ class DirtyTable {
       flush(my_item->addr_);
     }
     flush(addr);
+    __builtin_prefetch(addr);
     auto value = _mm256_set_epi64x(0, new_v, old_v, (uint64_t)addr);
     _mm256_stream_si256((__m256i*)(my_item), value);
   }

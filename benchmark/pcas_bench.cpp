@@ -47,7 +47,6 @@ struct BaseBench : public PerformanceTest {
     pmemobj_zalloc(pool, &ptr, pm_tool::PMDK_PADDING + size,
                    TOID_TYPE_NUM(char));
     auto abs_ptr = (char*)pmemobj_direct(ptr) + pm_tool::PMDK_PADDING;
-    // pmemobj_memset_persist(pool, abs_ptr, 0, size);
     return abs_ptr;
   }
 
@@ -118,6 +117,38 @@ struct CASBench : public BaseBench {
   }
 };
 
+struct DirtyCASBench : public BaseBench {
+  const char* GetBenchName() override { return "DirtyCASBench"; }
+  DirtyCASBench() : BaseBench() {}
+
+  static const uint64_t kDirtyBitMask = 0x8000000000000000;
+
+  void Entry(size_t thread_idx, size_t thread_count) override {
+    if (thread_idx == 0) {
+      WorkLoadInit();
+    }
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist(
+        0, kArrayLen - 1);
+
+    WaitForStart();
+
+    for (uint32_t i = 0; i < kOpCnt; i += 1) {
+      uint32_t pos = dist(rng);
+      uint64_t* target =
+          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+      uint64_t value = *target;
+      uint64_t dirty_value = value | kDirtyBitMask;
+
+      pm_tool::CompareExchange64(target, dirty_value, value);
+      pm_tool::flush(target);
+      pm_tool::fence();
+      pm_tool::CompareExchange64(target, dirty_value & (~kDirtyBitMask),
+                                 dirty_value);
+    }
+  }
+};
+
 int main() {
   {
     auto pcas_bench = std::make_unique<PCASBench>();
@@ -126,5 +157,9 @@ int main() {
   {
     auto cas_bench = std::make_unique<CASBench>();
     cas_bench->Run(1)->Run(2)->Run(4)->Run(8);
+  }
+  {
+    auto dirty_cas_bench = std::make_unique<DirtyCASBench>();
+    dirty_cas_bench->Run(1)->Run(2)->Run(4)->Run(8);
   }
 }
