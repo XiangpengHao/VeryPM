@@ -26,6 +26,8 @@ T CompareExchange64(T* destination, T new_value, T comparand) {
 
 namespace pm_tool {
 
+static const constexpr bool kUseCLWB = true;
+
 static const constexpr uint64_t CREATE_MODE_RW = (S_IWUSR | S_IRUSR);
 
 static const constexpr uint64_t PMDK_PADDING = 48;

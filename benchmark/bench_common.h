@@ -134,6 +134,8 @@ class PerformanceTest {
       ;
   }
 
+  size_t GetThreadsFinished() { return threads_finished_; }
+
   /// Return the number of seconds Entry() ran on any of the threads starting
   /// just after WaitForStart() up through the end of Entry().
   double GetLastRunSeconds() { return run_seconds_.back(); }

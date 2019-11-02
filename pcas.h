@@ -48,7 +48,7 @@ class DirtyTable {
     void* addr_;
     uint64_t old_;
     uint64_t new_;
-    char paddings_[8];
+    char paddings_[40];
   };
 
   Item* MyItem() {
@@ -80,6 +80,7 @@ class DirtyTable {
     Item* my_item = MyItem();
     if (my_item->addr_ != nullptr) {
       flush(my_item->addr_);
+      __builtin_prefetch(my_item->addr_);
     }
     flush(addr);
     __builtin_prefetch(addr);
@@ -98,7 +99,7 @@ class DirtyTable {
 
   uint32_t item_cnt_{0};
 
-  char paddings_[24];
+  char paddings_[56];
 
   Item items_[0];
 };
@@ -128,7 +129,6 @@ static uint64_t PersistentCAS(void* addr, uint64_t old_v, uint64_t new_v) {
   DirtyTable::GetInstance()->RegisterItem(addr, old_v, new_v);
   __atomic_compare_exchange_n((uint64_t*)addr, &old_v, new_v, false,
                               __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-  fence();
   return old_v;
 }
 
