@@ -60,7 +60,6 @@ struct BaseBench : public PerformanceTest {
     }
     std::cout << "Succeeded CAS: " << sum << std::endl;
 
-    std::cout << "Read operation compeleted: " << read_count_ << std::endl;
     auto oid = pmemobj_oid((char*)pm_tool::DirtyTable::GetInstance() -
                            pm_tool::PMDK_PADDING);
     pmemobj_free(&oid);
@@ -84,25 +83,37 @@ struct PCASBench : public BaseBench {
 
     WaitForStart();
 
-    if (thread_idx == 0) {
-      size_t lc_read{0};
-      while (GetThreadsFinished() != (thread_count - 1)) {
-        uint32_t pos = dist(rng);
-        uint64_t* target =
-            array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
-        volatile uint64_t value = *target;
-        lc_read += 1;
-      }
-      read_count_ = lc_read;
-      return;
-    }
-
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
       uint64_t* target =
           array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
       uint64_t value = *target;
       pm_tool::PersistentCAS(target, value, value + 1);
+    }
+  }
+};
+
+struct NaiveCASBench : public BaseBench {
+  const char* GetBenchName() override { return "NaiveCASBench"; }
+  NaiveCASBench() : BaseBench() {}
+
+  void Entry(size_t thread_idx, size_t thread_count) override {
+    if (thread_idx == 0) {
+      WorkLoadInit();
+    }
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist(
+        0, kArrayLen - 1);
+
+    WaitForStart();
+
+    for (uint32_t i = 0; i < kOpCnt; i += 1) {
+      uint32_t pos = dist(rng);
+      uint64_t* target =
+          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+      uint64_t value = *target;
+
+      pm_tool::CompareExchange64(target, value + 1, value);
     }
   }
 };
@@ -120,19 +131,6 @@ struct CASBench : public BaseBench {
         0, kArrayLen - 1);
 
     WaitForStart();
-
-    if (thread_idx == 0) {
-      size_t lc_read{0};
-      while (GetThreadsFinished() != (thread_count - 1)) {
-        uint32_t pos = dist(rng);
-        uint64_t* target =
-            array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
-        volatile uint64_t value = *target;
-        lc_read += 1;
-      }
-      read_count_ = lc_read;
-      return;
-    }
 
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
@@ -162,24 +160,6 @@ struct DirtyCASBench : public BaseBench {
         0, kArrayLen - 1);
 
     WaitForStart();
-
-    if (thread_idx == 0) {
-      size_t lc_read{0};
-      while (GetThreadsFinished() != (thread_count - 1)) {
-        uint32_t pos = dist(rng);
-        uint64_t* target =
-            array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
-        volatile uint64_t old_v = *target;
-        while ((old_v & kDirtyBitMask) != 0) {
-          uint64_t cleared = old_v & (~kDirtyBitMask);
-          pm_tool::CompareExchange64(target, cleared, old_v);
-          old_v = *target;
-        }
-        lc_read += 1;
-      }
-      read_count_ = lc_read;
-      return;
-    }
 
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
@@ -232,14 +212,18 @@ int main(int argc, char** argv) {
 
   {
     auto pcas_bench = std::make_unique<PCASBench>();
-    pcas_bench->Run(2)->Run(3)->Run(5)->Run(9)->Run(17)->Run(24);
+    pcas_bench->Run(1)->Run(2)->Run(4)->Run(8)->Run(16)->Run(24);
   }
   {
     auto cas_bench = std::make_unique<CASBench>();
-    cas_bench->Run(2)->Run(3)->Run(5)->Run(8)->Run(17)->Run(24);
+    cas_bench->Run(1)->Run(2)->Run(4)->Run(8)->Run(16)->Run(24);
   }
   {
     auto dirty_cas_bench = std::make_unique<DirtyCASBench>();
-    dirty_cas_bench->Run(2)->Run(3)->Run(5)->Run(9)->Run(17)->Run(24);
+    dirty_cas_bench->Run(1)->Run(2)->Run(4)->Run(8)->Run(16)->Run(24);
+  }
+  {
+    auto naive_cas_bench = std::make_unique<NaiveCASBench>();
+    naive_cas_bench->Run(1)->Run(2)->Run(4)->Run(8)->Run(16)->Run(24);
   }
 }
