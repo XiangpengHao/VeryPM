@@ -1,18 +1,26 @@
-# Simple Epoch Based Memory Reclaimer
+# VeryPM - persistent memory tool box 
 
 [![Build Status](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_apis/build/status/XiangpengHao.epoch-reclaimer?branchName=master)](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_build/latest?definitionId=1&branchName=master)
 
-Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas) with a few new features, all bugs are mine.
+A set of progressive, non-intrusive, easy-to-use, and high performance persistent memory tools.
+
+## What's included:
+
+1. Epoch Manager<sup>1</sup>
+2. Garbage List
+3. Persistent CAS
+4. PM allocator (in progress)
 
 ## Features
 
-- Small, simple, feature-compelete
-
-- Epoch Manager + Garbage List
+- Small, simple, feature-complete
 
 - Header-only
 
-- Experimental persistent memory support
+- Persistent memory support
+
+- High performance
+
 
 ## Build
 
@@ -22,7 +30,11 @@ cmake -DCMAKE_BUILD_TYPE={Debug|Release} -DPMEM={0|1} ..
 make tests
 ```
 
-## Usage
+1: Code adapted from [PMwCAS](https://github.com/microsoft/pmwcas) with a few new features, all bugs are mine.
+
+
+
+## Usage - Epoch Manager and Garbage List 
 
 ```c++
 struct MockItem {
