@@ -6,8 +6,7 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+pool: dis-03
 
 steps:
 - script: docker build -t cpp_project .  # add options to this command to meet your needs

@@ -1,6 +1,6 @@
 # VeryPM - persistent memory tool box 
 
-[![Build Status](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_apis/build/status/XiangpengHao.epoch-reclaimer?branchName=master)](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_build/latest?definitionId=1&branchName=master)
+[![Build Status](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_apis/build/status/XiangpengHao.VeryPM?branchName=master)](https://dev.azure.com/haoxiangpeng/epoch-reclaimer/_build/latest?definitionId=2&branchName=master)
 
 A set of progressive, non-intrusive, easy-to-use, and high performance persistent memory tools.
 
