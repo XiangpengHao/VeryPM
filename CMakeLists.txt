@@ -57,6 +57,15 @@ endif()
 enable_testing()
 
 add_definitions(-DTEST_BUILD)
+
+if (NOT DEFINED CASCADE_LAKE)
+  set(CASCADE_LAKE 1)
+endif()
+add_definitions(-DCASCADE_LAKE=${CASCADE_LAKE})
+if(${CASCADE_LAKE})
+  message("-- Cascade lake defined")
+endif()
+
 add_subdirectory(tests)
 add_subdirectory(benchmark)
 

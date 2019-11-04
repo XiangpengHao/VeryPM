@@ -39,7 +39,14 @@ static bool FileExists(const char* pool_path) {
 
 static const constexpr uint64_t kCacheLineSize = 64;
 
-static void flush(void* addr) { _mm_clwb(addr); }
+static void flush(void* addr) {
+#if CASCADE_LAKE == 1
+  _mm_clwb(addr);
+#else
+  _mm_clflush(addr);
+#endif
+}
+
 static void fence() { _mm_mfence(); }
 
 template <typename T>
