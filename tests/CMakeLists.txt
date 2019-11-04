@@ -9,7 +9,7 @@ else()
 endif()
 
 add_executable(pcas_test pcas_test.cpp)
-target_link_libraries(pcas_test gtest_main glog::glog pthread pmemobj)
+target_link_libraries(pcas_test gtest_main glog::glog pthread)
 gtest_add_tests(TARGET pcas_test)
 
 add_executable(smoke_test smoke_test.cpp)
