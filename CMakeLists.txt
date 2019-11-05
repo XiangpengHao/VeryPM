@@ -66,9 +66,6 @@ if(${CASCADE_LAKE})
   message("-- Cascade lake defined")
 endif()
 
-if (NOT DEFINED SKIP_BENCHMARK)
-  add_subdirectory(benchmark)
-endif()
-
+add_subdirectory(benchmark)
 add_subdirectory(tests)
 
