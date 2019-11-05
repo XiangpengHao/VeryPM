@@ -65,7 +65,7 @@ class DirtyTable {
   ///   We employ lazy flush mechanism to hide the high cost of clwb (Oct.
   ///   2019), i.e. there's no flush after a CAS, need to make sure the previous
   ///   CASed value is properly persisted. When clwb is ideally implemented (not
-  ///   evicting cache line), we can move the flush after a CAS and potenially
+  ///   evicting cache line), we can move the flush after a CAS and potentially
   ///   save a branch here.
   ///
   /// Why flush addr?
