@@ -157,10 +157,10 @@ class GarbageList : public IGarbageList {
       // To prevent memory leak, pmdk will chain the allocations by adding a
       // 16-byte pointer at the beginning of the requested memory, which breaks
       // the memory alignment. the PMDK_PADDING is to force pad again
-      pmemobj_zalloc(pool_, &ptr, nItemArraySize + pm_tool::PMDK_PADDING,
+      pmemobj_zalloc(pool_, &ptr, nItemArraySize + very_pm::PMDK_PADDING,
                      TOID_TYPE_NUM(char));
       items_ = (GarbageList::Item*)((char*)pmemobj_direct(ptr) +
-                                    pm_tool::PMDK_PADDING);
+                                    very_pm::PMDK_PADDING);
     }
     TX_END
 #else
@@ -202,7 +202,7 @@ class GarbageList : public IGarbageList {
     }
 
 #ifdef PMEM
-    auto oid = pmemobj_oid((char*)items_ - pm_tool::PMDK_PADDING);
+    auto oid = pmemobj_oid((char*)items_ - very_pm::PMDK_PADDING);
     pmemobj_free(&oid);
 #else
     delete items_;

@@ -31,9 +31,9 @@ class GarbageListPMTest : public ::testing::Test {
 
   virtual void SetUp() {
     PMEMobjpool* tmp_pool;
-    if (!pm_tool::FileExists(pool_name)) {
+    if (!very_pm::FileExists(pool_name)) {
       tmp_pool = pmemobj_create(pool_name, layout_name, pool_size,
-                                pm_tool::CREATE_MODE_RW);
+                                very_pm::CREATE_MODE_RW);
       LOG_ASSERT(tmp_pool != nullptr);
     } else {
       tmp_pool = pmemobj_open(pool_name, layout_name);

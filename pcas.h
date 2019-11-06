@@ -11,7 +11,7 @@
 #include <gtest/gtest_prod.h>
 #endif
 
-namespace pm_tool {
+namespace very_pm {
 
 class DirtyTable {
  public:

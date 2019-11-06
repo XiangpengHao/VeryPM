@@ -20,9 +20,9 @@ struct BaseBench : public PerformanceTest {
     static const char* pool_name = "/mnt/pmem0/pcas_pool.data";
     static const char* layout_name = "benchmark";
     static const uint64_t pool_size = 1024 * 1024 * 1024;
-    if (!pm_tool::FileExists(pool_name)) {
+    if (!very_pm::FileExists(pool_name)) {
       pool = pmemobj_create(pool_name, layout_name, pool_size,
-                            pm_tool::CREATE_MODE_RW);
+                            very_pm::CREATE_MODE_RW);
     } else {
       pool = pmemobj_open(pool_name, layout_name);
     }
@@ -37,33 +37,33 @@ struct BaseBench : public PerformanceTest {
   uint64_t* array{nullptr};
 
   void WorkLoadInit() {
-    auto table = (pm_tool::DirtyTable*)ZAlloc(
-        sizeof(pm_tool::DirtyTable) +
-        sizeof(pm_tool::DirtyTable::Item) * kItemCnt);
-    pm_tool::DirtyTable::Initialize(table, kItemCnt);
-    array = (uint64_t*)ZAlloc(pm_tool::kCacheLineSize * kArrayLen);
+    auto table = (very_pm::DirtyTable*)ZAlloc(
+        sizeof(very_pm::DirtyTable) +
+        sizeof(very_pm::DirtyTable::Item) * kItemCnt);
+    very_pm::DirtyTable::Initialize(table, kItemCnt);
+    array = (uint64_t*)ZAlloc(very_pm::kCacheLineSize * kArrayLen);
   }
 
   void* ZAlloc(size_t size) {
     PMEMoid ptr;
-    pmemobj_zalloc(pool, &ptr, pm_tool::PMDK_PADDING + size,
+    pmemobj_zalloc(pool, &ptr, very_pm::PMDK_PADDING + size,
                    TOID_TYPE_NUM(char));
-    auto abs_ptr = (char*)pmemobj_direct(ptr) + pm_tool::PMDK_PADDING;
+    auto abs_ptr = (char*)pmemobj_direct(ptr) + very_pm::PMDK_PADDING;
     return abs_ptr;
   }
 
   void Teardown() override {
     uint64_t sum{0};
     for (uint32_t i = 0; i < kArrayLen; i += 1) {
-      uint64_t* target = array + i * pm_tool::kCacheLineSize / sizeof(uint64_t);
+      uint64_t* target = array + i * very_pm::kCacheLineSize / sizeof(uint64_t);
       sum += *target;
     }
     std::cout << "Succeeded CAS: " << sum << std::endl;
 
-    auto oid = pmemobj_oid((char*)pm_tool::DirtyTable::GetInstance() -
-                           pm_tool::PMDK_PADDING);
+    auto oid = pmemobj_oid((char*)very_pm::DirtyTable::GetInstance() -
+                           very_pm::PMDK_PADDING);
     pmemobj_free(&oid);
-    oid = pmemobj_oid((char*)array - pm_tool::PMDK_PADDING);
+    oid = pmemobj_oid((char*)array - very_pm::PMDK_PADDING);
     pmemobj_free(&oid);
   }
 };
@@ -86,9 +86,9 @@ struct PCASBench : public BaseBench {
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
       uint64_t* target =
-          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+          array + pos * very_pm::kCacheLineSize / sizeof(uint64_t);
       uint64_t value = *target;
-      pm_tool::PersistentCAS(target, value, value + 1);
+      very_pm::PersistentCAS(target, value, value + 1);
     }
   }
 };
@@ -110,10 +110,10 @@ struct NaiveCASBench : public BaseBench {
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
       uint64_t* target =
-          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+          array + pos * very_pm::kCacheLineSize / sizeof(uint64_t);
       uint64_t value = *target;
 
-      pm_tool::CompareExchange64(target, value + 1, value);
+      very_pm::CompareExchange64(target, value + 1, value);
     }
   }
 };
@@ -135,12 +135,12 @@ struct CASBench : public BaseBench {
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
       uint64_t* target =
-          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+          array + pos * very_pm::kCacheLineSize / sizeof(uint64_t);
       uint64_t value = *target;
 
-      pm_tool::CompareExchange64(target, value + 1, value);
-      pm_tool::flush(target);
-      pm_tool::fence();
+      very_pm::CompareExchange64(target, value + 1, value);
+      very_pm::flush(target);
+      very_pm::fence();
     }
   }
 };
@@ -164,22 +164,22 @@ struct DirtyCASBench : public BaseBench {
     for (uint32_t i = 0; i < kOpCnt; i += 1) {
       uint32_t pos = dist(rng);
       uint64_t* target =
-          array + pos * pm_tool::kCacheLineSize / sizeof(uint64_t);
+          array + pos * very_pm::kCacheLineSize / sizeof(uint64_t);
 
       uint64_t old_v = *target;
       while ((old_v & kDirtyBitMask) != 0) {
         uint64_t cleared = old_v & (~kDirtyBitMask);
-        pm_tool::CompareExchange64(target, cleared, old_v);
+        very_pm::CompareExchange64(target, cleared, old_v);
         old_v = *target;
       }
 
       uint64_t new_v = old_v + 1;
       uint64_t dirty_value = new_v | kDirtyBitMask;
 
-      pm_tool::CompareExchange64(target, dirty_value, old_v);
-      pm_tool::flush(target);
-      pm_tool::fence();
-      pm_tool::CompareExchange64(target, new_v, dirty_value);
+      very_pm::CompareExchange64(target, dirty_value, old_v);
+      very_pm::flush(target);
+      very_pm::fence();
+      very_pm::CompareExchange64(target, new_v, dirty_value);
     }
   }
 };

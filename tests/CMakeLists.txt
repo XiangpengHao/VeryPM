@@ -8,6 +8,10 @@ else()
     gtest_add_tests(TARGET garbage_test)
 endif()
 
+add_executable(pm_allocator pm_allocator_test.cpp)
+target_link_libraries(pm_allocator gtest_main glog::glog pthread pmemobj)
+gtest_add_tests(TARGET pm_allocator)
+
 add_executable(pcas_test pcas_test.cpp)
 target_link_libraries(pcas_test gtest_main glog::glog pthread)
 gtest_add_tests(TARGET pcas_test)

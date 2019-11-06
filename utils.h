@@ -24,7 +24,7 @@ T CompareExchange64(T* destination, T new_value, T comparand) {
   return comparand;
 }
 
-namespace pm_tool {
+namespace very_pm {
 
 static const constexpr bool kUseCLWB = true;
 
