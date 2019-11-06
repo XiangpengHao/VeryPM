@@ -15,23 +15,20 @@ POBJ_LAYOUT_END(allocator)
 ///  2. Have a separate pool management.
 class Allocator {
  public:
+  static void Recovery(const char* pool_name, size_t pool_size) {
+    PMEMobjpool* pm_pool = CreateOrOpenPool(pool_name, pool_size);
+    auto allocator_oid = pmemobj_root(pm_pool, sizeof(Allocator));
+    auto allocator = (Allocator*)pmemobj_direct(allocator_oid);
+    LOG_IF(FATAL, allocator->pm_pool_ == nullptr)
+        << "Corruptted pool!" << std::endl;
+    allocator->old_pool_ = allocator->pm_pool_;
+    allocator->pm_pool_ = pm_pool;
+    allocator_ = allocator;
+    very_pm::flush(allocator_);
+  }
+
   static void Initialize(const char* pool_name, size_t pool_size) {
-    PMEMobjpool* pm_pool{nullptr};
-    if (!very_pm::FileExists(pool_name)) {
-      LOG(INFO) << "creating a new pool" << std::endl;
-      pm_pool =
-          pmemobj_create(pool_name, layout_name, pool_size, CREATE_MODE_RW);
-      if (pm_pool == nullptr) {
-        LOG(FATAL) << "failed to create a pool" << std::endl;
-      }
-    } else {
-      LOG(INFO) << "opening an existing pool, and trying to map to same address"
-                << std::endl;
-      pm_pool = pmemobj_open(pool_name, layout_name);
-      if (pm_pool == nullptr) {
-        LOG(FATAL) << "failed to open the pool" << std::endl;
-      }
-    }
+    PMEMobjpool* pm_pool = CreateOrOpenPool(pool_name, pool_size);
     auto allocator_oid = pmemobj_root(pm_pool, sizeof(Allocator));
     allocator_ = (Allocator*)pmemobj_direct(allocator_oid);
     allocator_->pm_pool_ = pm_pool;
@@ -59,8 +56,30 @@ class Allocator {
   }
 
  private:
+  static PMEMobjpool* CreateOrOpenPool(const char* pool_name,
+                                       size_t pool_size) {
+    PMEMobjpool* pm_pool{nullptr};
+    if (!very_pm::FileExists(pool_name)) {
+      LOG(INFO) << "creating a new pool" << std::endl;
+      pm_pool =
+          pmemobj_create(pool_name, layout_name, pool_size, CREATE_MODE_RW);
+      if (pm_pool == nullptr) {
+        LOG(FATAL) << "failed to create a pool" << std::endl;
+      }
+    } else {
+      LOG(INFO) << "opening an existing pool, and trying to map to same address"
+                << std::endl;
+      pm_pool = pmemobj_open(pool_name, layout_name);
+      if (pm_pool == nullptr) {
+        LOG(FATAL) << "failed to open the pool" << std::endl;
+      }
+    }
+    return pm_pool;
+  }
+
   static Allocator* allocator_;
   PMEMobjpool* pm_pool_{nullptr};
+  PMEMobjpool* old_pool_{nullptr};
 };
 
 Allocator* Allocator::allocator_{nullptr};
