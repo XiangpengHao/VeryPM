@@ -4,6 +4,11 @@
 #include <atomic>
 #include <cstdint>
 
+#ifdef TEST_BUILD
+#include <glog/logging.h>
+#include <glog/raw_logging.h>
+#endif
+
 #define IS_POWER_OF_TWO(x) (x && (x & (x - 1)) == 0)
 
 inline uint64_t Murmur3_64(uint64_t h) {
@@ -57,4 +62,4 @@ T CompareExchange64(T* destination, T new_value, T comparand) {
                                 __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
   return comparand;
 }
-}  // namespace pm_tool
+}  // namespace very_pm
