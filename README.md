@@ -10,14 +10,17 @@ A set of progressive, non-intrusive, easy-to-use, and high performance persisten
 2. Garbage List
 3. Persistent CAS
 4. PM allocator (in progress)
+5. Pool Management (in progress)
 
 ## Features
 
-- Small, simple, feature-complete
+- Progressive: components are self-sufficient, you don't need to include the whole forest just for a leaf. 
+
+- Non-intrusive: pointers are 8-byte, typings are C++ standard. 
 
 - Header-only
 
-- Persistent memory support
+- Persistent memory support, tested on real device.
 
 - High performance
 
