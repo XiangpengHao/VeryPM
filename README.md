@@ -8,7 +8,7 @@ A set of progressive, non-intrusive, easy-to-use, and high performance persisten
 
 1. Epoch Manager<sup>1</sup>
 2. Garbage List
-3. Persistent CAS
+3. Persistent CAS <sup><a href="https://blog.haoxp.xyz/posts/persistent-cas/">2</a></sup>
 4. PM allocator (in progress)
 5. Pool Management (in progress)
 
