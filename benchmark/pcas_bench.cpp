@@ -46,9 +46,9 @@ struct BaseBench : public PerformanceTest {
 
   void* ZAlloc(size_t size) {
     PMEMoid ptr;
-    pmemobj_zalloc(pool, &ptr, very_pm::PMDK_PADDING + size,
+    pmemobj_zalloc(pool, &ptr, very_pm::kPMDK_PADDING + size,
                    TOID_TYPE_NUM(char));
-    auto abs_ptr = (char*)pmemobj_direct(ptr) + very_pm::PMDK_PADDING;
+    auto abs_ptr = (char*)pmemobj_direct(ptr) + very_pm::kPMDK_PADDING;
     return abs_ptr;
   }
 
@@ -61,9 +61,9 @@ struct BaseBench : public PerformanceTest {
     std::cout << "Succeeded CAS: " << sum << std::endl;
 
     auto oid = pmemobj_oid((char*)very_pm::DirtyTable::GetInstance() -
-                           very_pm::PMDK_PADDING);
+                           very_pm::kPMDK_PADDING);
     pmemobj_free(&oid);
-    oid = pmemobj_oid((char*)array - very_pm::PMDK_PADDING);
+    oid = pmemobj_oid((char*)array - very_pm::kPMDK_PADDING);
     pmemobj_free(&oid);
   }
 };
