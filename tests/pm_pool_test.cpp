@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
 
-static const constexpr char* allocator_pool = "/mnt/pmem0/allocator0";
+static const constexpr char* allocator_pool = "allocator0";
 static const constexpr uint64_t pool_size = 1024 * 1024 * 1024;
 static const constexpr uint64_t kCacheLineMask = 0x3F;
 
