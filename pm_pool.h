@@ -35,6 +35,7 @@ class PMPool {
       exit(1);
     }
 
+    pm_pool_ = (PMPool*)malloc(sizeof(PMPool));
     pm_pool_->pool_addr_ = MapFile(pool_size, fd);
   }
 
@@ -54,6 +55,7 @@ class PMPool {
       exit(1);
     }
 
+    pm_pool_ = (PMPool*)malloc(sizeof(PMPool));
     pm_pool_->pool_addr_ = MapFile(pool_size, fd);
   }
 
