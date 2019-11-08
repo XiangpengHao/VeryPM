@@ -1,7 +1,5 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <map>
-#include <random>
 
 GTEST_TEST(SmokeTest, SmokeTest) {
   LOG(INFO) << "running tests";
