@@ -5,7 +5,6 @@
 
 trigger:
 - master
-- dev
 
 pool: dis-03
 

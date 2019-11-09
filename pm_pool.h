@@ -74,14 +74,31 @@ class PMPool {
 
     pm_pool_ = reinterpret_cast<PMPool*>(MapFile(pool_size, fd));
     close(fd);
-    auto value = _mm256_set_epi64x((uint64_t)((char*)pm_pool_ + kPoolPageSize),
-                                   (uint64_t)((char*)pm_pool_ + kPoolPageSize),
+    auto next_page =
+        reinterpret_cast<PoolPage*>((char*)pm_pool_ + kPoolPageSize);
+    auto value = _mm256_set_epi64x((uint64_t)next_page, (uint64_t)next_page,
                                    pool_size, (uint64_t)pm_pool_);
     _mm256_stream_si256((__m256i*)pm_pool_, value);
     fence();
   }
 
+  static void AllocatePage(void** mem) {
+    if (pm_pool_->free_page_list_->next_ == nullptr) {
+      assert((void*)pm_pool_->free_page_list_ == pm_pool_->pool_high_addr_);
+      auto* next_page =
+          (PoolPage*)((char*)pm_pool_->pool_high_addr_ + kPoolPageSize);
+      *mem = next_page;
+      pm_pool_->free_page_list_->next_ = next_page;
+      pm_pool_->pool_high_addr_ = (void*)next_page;
+    }
+  }
+
  private:
+  struct PoolPage {
+    PoolPage* next_{nullptr};
+    char data[kPoolPageSize - sizeof(next_)] = {0};
+  };
+
   static void* MapFile(size_t pool_size, int fd) {
     auto pool_addr = mmap(
         VERY_PM_POOL_ADDR, pool_size, PROT_READ | PROT_WRITE,
@@ -102,13 +119,6 @@ class PMPool {
     LOG(INFO) << "Pool successfully mapped at: " << std::hex << pool_addr
               << std::dec << std::endl;
 
-    /// The return of pmem_is_pmem is only valid when using pmem_map_file
-    //   int is_pmem = pmem_is_pmem(pool_addr, pool_size);
-    //   if (is_pmem == 0) {
-    //     LOG(WARNING) << "Mapped file is not persistent memory." << is_pmem
-    //                  << std::endl;
-    //   }
-
     return pool_addr;
   }
 
@@ -121,7 +131,7 @@ class PMPool {
   void* pool_addr_;
   uint64_t pool_size_;
   void* pool_high_addr_;
-  void* free_page_list_;
+  PoolPage* free_page_list_;
 };
 
 PMPool* PMPool::pm_pool_ = nullptr;
