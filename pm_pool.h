@@ -83,9 +83,10 @@ class PMPool {
 
  private:
   static void* MapFile(size_t pool_size, int fd) {
-    auto pool_addr =
-        mmap(VERY_PM_POOL_ADDR, pool_size, PROT_READ | PROT_WRITE,
-             MAP_FILE | MAP_SYNC | MAP_SHARED | MAP_FIXED_NOREPLACE, fd, 0);
+    auto pool_addr = mmap(
+        VERY_PM_POOL_ADDR, pool_size, PROT_READ | PROT_WRITE,
+        MAP_FILE | MAP_SYNC | MAP_SHARED | MAP_HUGETLB | MAP_FIXED_NOREPLACE,
+        fd, 0);
 
     if (pool_addr == nullptr || (int64_t)pool_addr == -1) {
       LOG(FATAL) << "mmap failed: " << std::strerror(errno) << std::endl;
